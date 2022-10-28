@@ -7,7 +7,7 @@
     <string name="select_an_account"><![CDATA[<select an account>]]></string>
     <string name="select_a_destination"><![CDATA[<select a destination>]]></string>
     <string name="transfer_sol">Transfer 0.001 SOL (devnet)</string>
-    <string name="account_balance">(%f SOL)</string>
+    <string name="account_balance">Balance %f SOL</string>
     <string name="account_identifier">%s [%s]</string>
     <string name="airdrop_requested">Airdrop request complete</string>
     <string name="airdrop_requested_action">VIEW</string>
@@ -18,4 +18,7 @@
     <string name="get_balance_failed">Failed to get account balance</string>
     <string name="no_wallet_found">Please install a wallet app</string>
     <string name="authorize_failed">Failed connecting to your account</string>
+    <string name="connect_account">Connect Account</string>
+    <string name="airdrop">Airdrop</string>
+    <string name="loading_balance">Loading Balance</string>
 </resources>

@@ -88,5 +88,5 @@ object RequestAirdropUseCase {
 
     private val TAG = RequestAirdropUseCase::class.simpleName
     private const val TIMEOUT_MS = 20000
-    private const val AIRDROP_LAMPORTS = 10000000
+    private const val AIRDROP_LAMPORTS = 1000000000
 }

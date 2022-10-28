@@ -42,30 +42,22 @@ class MainActivity : AppCompatActivity() {
                     binding.accountBalanceLoading.visibility =
                         if (uiState.account.showBalanceRefreshing) View.VISIBLE else View.GONE
                     if (uiState.account.showBalance) {
-                        binding.accountBalanceText.visibility = View.VISIBLE
                         binding.accountBalanceText.text =
                             getString(R.string.account_balance, uiState.account.balance)
+                        binding.accountBalanceText.visibility = View.VISIBLE
                     } else {
-                        binding.accountBalanceText.visibility = View.GONE
+                        if (uiState.account.showBalanceRefreshing) {
+                            binding.accountBalanceText.text = getString(R.string.loading_balance)
+                            binding.accountBalanceText.visibility = View.VISIBLE
+                        } else {
+                            binding.accountBalanceText.visibility = View.GONE
+                        }
                     }
-
-                    binding.destinationIdentifierText.text = uiState.destination.identifier
-                    binding.destinationBalanceLoading.visibility =
-                        if (uiState.destination.showBalanceRefreshing) View.VISIBLE else View.GONE
-                    if (uiState.destination.showBalance) {
-                        binding.destinationBalanceText.visibility = View.VISIBLE
-                        binding.destinationBalanceText.text =
-                            getString(R.string.account_balance, uiState.destination.balance)
-                    } else {
-                        binding.destinationBalanceText.visibility = View.GONE
-                    }
-
-                    binding.transferButton.isEnabled = uiState.enableTransfer
 
                     if (uiState.messages.isNotEmpty()) {
                         val message = uiState.messages.first()
                         if (message.sequenceNum != lastShownMessageSequenceNum) {
-                            Snackbar.make(binding.root, message.message, Snackbar.LENGTH_SHORT)
+                            Snackbar.make(binding.root, message.message, Snackbar.LENGTH_LONG)
                                 .setAction(message.actionText) { startActivity(message.action) }
                                 .addCallback(object :
                                     BaseTransientBottomBar.BaseCallback<Snackbar>() {
@@ -87,12 +79,8 @@ class MainActivity : AppCompatActivity() {
             viewModel.selectAccount(intentSender)
         }
 
-        binding.selectDestinationButton.setOnClickListener {
-            viewModel.selectDestination()
-        }
-
-        binding.transferButton.setOnClickListener {
-            viewModel.doTransfer(intentSender)
+        binding.airdropButton.setOnClickListener {
+            viewModel.airdrop()
         }
     }
 

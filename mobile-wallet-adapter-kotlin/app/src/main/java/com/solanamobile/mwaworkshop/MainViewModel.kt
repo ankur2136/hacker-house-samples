@@ -43,9 +43,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val action: Intent? = null
     )
     data class UiState(
-        val account: AccountUiState = AccountUiState(null, 0.0f, false, false),
-        val destination: AccountUiState = AccountUiState(null, 0.0f, false, false),
-        val enableTransfer: Boolean = false,
+        val account: AccountUiState = AccountUiState(null,
+            balance = 0.0f,
+            showBalance = false,
+            showBalanceRefreshing = false
+        ),
         val messages: List<ActionableMessage> = listOf()
     )
 
@@ -56,9 +58,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var authToken: String? = null
     private var walletUriBase: Uri? = null
     private var accountAddress: ByteArray? = null
-
-    // Destination properties
-    private var destinationAddress: ByteArray? = null
 
     private val mobileWalletAdapterClientSem = Semaphore(1) // allow only a single MWA connection at a time
 
@@ -98,122 +97,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 _uiState.update { oldState ->
                     oldState.copy(
-                        account = AccountUiState(identifier, 0.0f, false, true),
-                        enableTransfer = (destinationAddress != null)
+                        account = AccountUiState(
+                            identifier,
+                            balance = 0.0f,
+                            showBalance = true,
+                            showBalanceRefreshing = false
+                        ),
                     )
                 }
             }
+        }
+    }
 
+    fun airdrop() {
+        viewModelScope.launch {
             if (authToken != null) {
+                _uiState.update { oldState -> oldState.copy(account = oldState.account.copy(showBalanceRefreshing = true) ) }
                 requestAirdrop()
                 updateAccountBalance()
-            }
-        }
-    }
-
-    fun selectDestination() {
-        // This simple dApp only has a single hard-coded destination
-        _uiState.update { oldState ->
-            destinationAddress = DUMMY_DESTINATION_ADDRESS
-            val identifier = getApplication<Application>().getString(
-                R.string.account_identifier,
-                DUMMY_DESTINATION_NAME,
-                Base58EncodeUseCase(DUMMY_DESTINATION_ADDRESS)
-            )
-            oldState.copy(
-                destination = AccountUiState(identifier, 0.0f, false, false),
-                enableTransfer = (accountAddress != null)
-            )
-        }
-
-        viewModelScope.launch {
-            updateDestinationBalance()
-        }
-    }
-
-    fun doTransfer(sender: StartActivityForResultSender) {
-        // This method should only be invoked after a successful call to authorize. Verify expected
-        // varibles are set and shadow them
-        val accountAddress = accountAddress!!
-        val destinationAddress = destinationAddress!!
-        val authToken = authToken!!
-        val walletUriBase = walletUriBase
-
-        _uiState.update { oldState -> oldState.copy(enableTransfer = false) }
-
-        viewModelScope.launch {
-            try {
-                val (blockhash, minContextSlot) = GetLatestBlockhashUseCase(
-                    NETWORK_RPC_URI,
-                    Commitment.CONFIRMED
-                )
-                val transferInstruction =
-                    TransferLamportsUseCase(accountAddress, destinationAddress, blockhash, 1000000)
-
-                val signature = localAssociateAndExecute(sender, walletUriBase) { client ->
-                    val authorizationResult = try {
-                        runInterruptible {
-                            client.reauthorize(
-                                Uri.parse("https://solanamobile.com"),
-                                Uri.parse("favicon.ico"),
-                                "MWA Workshop test app",
-                                authToken
-                            ).get()
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed calling reauthorize", e)
-                        null
-                    } ?: return@localAssociateAndExecute null
-
-                    this@MainViewModel.authToken = authorizationResult.authToken
-
-                    val transferResult = try {
-                        runInterruptible {
-                            client.signAndSendTransactions(
-                                arrayOf(transferInstruction),
-                                minContextSlot
-                            ).get()
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed calling sign_and_send_transactions", e)
-                        null
-                    } ?: return@localAssociateAndExecute null
-
-                    _uiState.update { oldState ->
-                        oldState.copy(
-                            account = AccountUiState(oldState.account.identifier, 0.0f, false, true),
-                            destination = AccountUiState(oldState.destination.identifier, 0.0f, false, true),
-                        )
-                    }
-
-                    transferResult.signatures[0]
-                }
-
-                if (signature == null) {
-                    Log.e(TAG, "Transaction not submitted to network")
-                    showMessage(R.string.transfer_failed)
-                    return@launch
-                }
-
-                WaitForTransactionCommittedUseCase(
-                    NETWORK_RPC_URI,
-                    signature,
-                    commitment = Commitment.CONFIRMED
-                )
-
-                val blockExplorerUri = Uri.parse("https://explorer.solana.com/tx/${Base58EncodeUseCase(signature)}?cluster=${NETWORK_NAME}")
-                showMessage(R.string.transfer_complete, R.string.transfer_complete_action, blockExplorerUri)
-
-                // Update account balances async
-                launch {
-                    updateAccountBalance()
-                }
-                launch {
-                    updateDestinationBalance()
-                }
-            } finally {
-                // No matter how we complete, re-enable the transfer action
-                _uiState.update { oldState -> oldState.copy(enableTransfer = true) }
             }
         }
     }
@@ -262,33 +163,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         _uiState.update { oldState ->
             oldState.copy(account = oldState.account.copy(
-                showBalance = true,
-                balance = toSol(balance),
-                showBalanceRefreshing = false
-            ))
-        }
-    }
-
-    private suspend fun updateDestinationBalance() {
-        val destinationAddress = destinationAddress!! // should never be null; verify and shadow
-
-        _uiState.update { oldState ->
-            oldState.copy(destination = oldState.destination.copy(
-                showBalance = false,
-                showBalanceRefreshing = true
-            ))
-        }
-
-        val balance = try {
-            GetBalanceUseCase(NETWORK_RPC_URI, destinationAddress, Commitment.CONFIRMED)
-        } catch (e: GetBalanceUseCase.GetBalanceFailedException) {
-            Log.e(TAG, "Failed to get destination balance", e)
-            showMessage(R.string.get_balance_failed)
-            0
-        }
-
-        _uiState.update { oldState ->
-            oldState.copy(destination = oldState.destination.copy(
                 showBalance = true,
                 balance = toSol(balance),
                 showBalanceRefreshing = false
@@ -390,11 +264,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     companion object {
         private val TAG = MainViewModel::class.simpleName
-
-        private const val DUMMY_DESTINATION_NAME = "John Doe"
-        private val DUMMY_DESTINATION_ADDRESS = byteArrayOf(
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-            16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31)
 
         private const val LOCAL_ASSOCIATION_READY_TIMEOUT_MS = 5000L // Maximum time to wait for the Activity which owns this ViewModel to be ready to send the association Intent
         private const val LOCAL_ASSOCIATION_START_TIMEOUT_MS = 60000L // LocalAssociationScenario.start() has a shorter timeout; this is just a backup safety measure
