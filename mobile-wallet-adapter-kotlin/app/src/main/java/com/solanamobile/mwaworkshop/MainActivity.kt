@@ -76,7 +76,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.selectAccountButton.setOnClickListener {
-            viewModel.selectAccount(intentSender)
+            viewModel.connectAccount(intentSender)
         }
 
         binding.airdropButton.setOnClickListener {

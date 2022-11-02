@@ -63,7 +63,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private var nextMessageSequenceNum: Int = 1
 
-    fun selectAccount(sender: StartActivityForResultSender) {
+    fun connectAccount(sender: StartActivityForResultSender) {
         viewModelScope.launch {
             localAssociateAndExecute(sender) { client ->
                 val authorizationResult = try {
