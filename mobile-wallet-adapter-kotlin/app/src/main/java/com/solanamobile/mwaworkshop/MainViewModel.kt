@@ -105,6 +105,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     )
                 }
+                updateAccountBalance()
             }
         }
     }
